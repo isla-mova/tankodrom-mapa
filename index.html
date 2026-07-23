@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tankodrom Milovice - mapa akce v2</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    html, body { margin: 0; height: 100%; }
+    #mapa { height: 100vh; width: 100%; }
+    .poi-ikona {
+  font-size: 20px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+}
+  </style>
+</head>
+<body>
+  <div id="mapa"></div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // =====================================================
+    //  MAPA AKCE v2 - tight framing, blue unfilled border
+    // =====================================================
+
+    // ---------- 1. BASE LAYERS ----------
+    const cuzkOrtofoto = L.tileLayer.wms(
+      'https://ags.cuzk.gov.cz/arcgis1/services/ORTOFOTO/MapServer/WMSServer',
+      {
+        layers: '0',
+        format: 'image/jpeg',
+        maxZoom: 20,
+        attribution: 'Ortofoto &copy; <a href="https://cuzk.gov.cz">ČÚZK</a>'
+      }
+    );
+
+    const esriSatelit = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 19, attribution: 'Imagery &copy; Esri' }
+    );
+
+    const osm = L.tileLayer(
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
+    );
+
+    // ---------- 2. THE MAP ----------
+    const mapa = L.map('mapa', { layers: [cuzkOrtofoto] });
+
+    // ---------- 3. EVENT AREA (new corners) ----------
+    const hraniceAkce = [
+      [50.2495986, 14.8484867],  // NW
+      [50.2491761, 14.8496881],  // NE
+      [50.2479714, 14.8496303],  // SE
+      [50.2479617, 14.8484481]   // SW
+    ];
+    const areaAkce = L.polygon(hraniceAkce, {
+      color: '#1565c0',          // blue border
+      fill: false,               // no filler - pure outline
+      weight: 3
+    });
+    areaAkce.bindPopup('<b>Prostor akce</b>');
+
+    // ---------- 4. POI MARKERS - GPS + navigation in every popup ----------
+    function poi(lat, lng, emoji, nazev) {
+      const gmaps = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+      const mapycz = `https://mapy.cz/zakladni?x=${lng}&y=${lat}&z=18&source=coor&id=${lng},${lat}`;
+
+      const obsahPopupu = `
+        <div style="text-align:center; min-width:170px;">
+          <b>${nazev}</b><br>
+          <small>GPS: ${lat}, ${lng}</small><br>
+          <a href="${gmaps}" target="_blank">🧭 Google Maps</a> ·
+          <a href="${mapycz}" target="_blank">🗺️ Mapy.cz</a>
+        </div>`;
+
+      return L.marker([lat, lng], {
+        icon: L.divIcon({ className: 'poi-ikona', html: emoji, iconSize: [28, 28] })
+      }).bindPopup(obsahPopupu);
+    }
+
+    const body_akce = L.layerGroup([
+      poi(50.2492531, 14.8487761, '🎶', 'DJ STATION'),
+      poi(50.2493722, 14.8491217, '🍺', 'BAR'),
+      poi(50.2481347, 14.8488492, '🚻', 'WC')
+    ]);
+
+    // ---------- 5. LAYER SWITCHER ----------
+    L.control.layers(
+      {
+        'Ortofoto ČÚZK': cuzkOrtofoto,
+        'Satelit (Esri)': esriSatelit,
+        'Mapa (OSM)': osm
+      },
+      {
+        'Prostor akce': areaAkce,
+        'Stanoviště': body_akce
+      }
+    ).addTo(mapa);
+
+    areaAkce.addTo(mapa);
+    body_akce.addTo(mapa);
+
+    // ---------- 6. SCALE + TIGHT FIT ----------
+    L.control.scale({ imperial: false }).addTo(mapa);
+    // Small padding = the event area fills the screen
+    mapa.fitBounds(areaAkce.getBounds(), { padding: [10, 10] });
+
+    // ---------- 7. Coordinate picker ----------
+    mapa.on('click', (e) => {
+      const lat = e.latlng.lat.toFixed(6);
+      const lng = e.latlng.lng.toFixed(6);
+      L.popup().setLatLng(e.latlng).setContent(`[${lat}, ${lng}]`).openOn(mapa);
+      console.log(`[${lat}, ${lng}],`);
+    });
+  </script>
+</body>
+</html>
