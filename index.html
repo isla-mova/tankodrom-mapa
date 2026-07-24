@@ -3,122 +3,466 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tankodrom Milovice - mapa akce</title>
+  <title>Tankodrom Milovice - mapa areálu</title>
+  <meta name="description" content="Interaktivní mapa areálu Tankodrom Milovice. Interactive site map of Tankodrom Milovice.">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Tankodrom Milovice">
+  <meta property="og:title" content="Tankodrom Milovice - mapa areálu">
+  <meta property="og:description" content="Interaktivní mapa areálu: vstupy, aktivity, parkoviště, zvířata. Interactive site map with navigation.">
+  <meta property="og:url" content="https://tankodrom-mapa.vercel.app/">
+  <meta property="og:image" content="https://tankodrom-mapa.vercel.app/og.jpg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:locale" content="cs_CZ">
+  <meta property="og:locale:alternate" content="en_GB">
+  <meta name="twitter:card" content="summary_large_image">
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <style>
-    html, body { margin: 0; height: 100%; }
-    #mapa { height: 100vh; width: 100%; }
-    .poi-ikona {
-  font-size: 20px;
-  background: rgba(255, 255, 255, 0.85);
-  border-radius: 50%;
-  width: 32px !important;
-  height: 32px !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4);
-}
+    :root {
+      --tyrkys:  #0E4952;
+      --tyrkys-tmavy: #0A363D;
+      --pisek:   #FFB067;
+      --oranz:   #E2711D;
+      --cervena: #C62828;
+      --bila:    #FFFFFF;
+      --s: 1;
+    }
+
+    html, body { margin: 0; height: 100%; font-family: system-ui, "Segoe UI", Roboto, sans-serif; }
+    #mapa { height: 100vh; width: 100%; background: #2b2b2b; }
+
+    /* ---------- BADGE MARKERS ---------- */
+    .odznak {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      border: 3px solid var(--bila);
+      box-shadow: 0 2px 6px rgba(0,0,0,.55), 0 0 0 1px rgba(0,0,0,.35);
+      transform: scale(var(--s));
+      transition: transform .18s ease;
+      cursor: pointer;
+    }
+    .odznak:hover { transform: scale(calc(var(--s) * 1.15)); }
+    .odznak svg { width: 62%; height: 62%; display: block; }
+
+    .odznak-sluzby   { background: var(--tyrkys); color: var(--pisek); }
+    .odznak-sluzby   svg { fill: var(--pisek); }
+    .odznak-aktivity { background: var(--oranz); color: var(--tyrkys-tmavy); }
+    .odznak-aktivity svg { fill: var(--tyrkys-tmavy); }
+    .odznak-vstup    { background: var(--cervena); color: var(--bila);
+                       animation: pulz 2.4s infinite; }
+    .odznak-vstup    svg { fill: var(--bila); }
+    .odznak-vstup:hover { animation: none; }
+
+    @keyframes pulz {
+      0%   { box-shadow: 0 2px 6px rgba(0,0,0,.55), 0 0 0 0 rgba(198,40,40,.65); }
+      70%  { box-shadow: 0 2px 6px rgba(0,0,0,.55), 0 0 0 20px rgba(198,40,40,0); }
+      100% { box-shadow: 0 2px 6px rgba(0,0,0,.55), 0 0 0 0 rgba(198,40,40,0); }
+    }
+
+    /* ---------- POPUP ---------- */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      border-top: 5px solid var(--oranz);
+      box-shadow: 0 6px 20px rgba(0,0,0,.35);
+    }
+    .leaflet-popup-content { margin: 12px 14px; min-width: 180px; }
+    .pop-nazev {
+      font-size: 15px; font-weight: 700; letter-spacing: .3px;
+      color: var(--tyrkys); text-transform: uppercase; line-height: 1.25;
+    }
+    .pop-popis { font-size: 13px; color: #444; margin-top: 4px; }
+    .pop-gps {
+      font-size: 11px; color: #777; margin-top: 6px;
+      font-family: ui-monospace, monospace;
+    }
+    .pop-nav { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+    .pop-nav a {
+      flex: 1 1 auto; text-align: center; text-decoration: none;
+      font-size: 12px; font-weight: 600; padding: 6px 8px; border-radius: 7px;
+      background: var(--tyrkys); color: #fff; white-space: nowrap;
+    }
+    .pop-nav a:hover { background: var(--oranz); }
+
+    /* ---------- HOVER LABEL (desktop only) ---------- */
+    .leaflet-tooltip.stitek {
+      background: var(--tyrkys); color: #fff; border: 0;
+      border-radius: 6px; font-size: 12px; font-weight: 600;
+      padding: 4px 8px; box-shadow: 0 2px 8px rgba(0,0,0,.4);
+    }
+    .leaflet-tooltip.stitek::before { border-top-color: var(--tyrkys); }
+    @media (hover: none) { .leaflet-tooltip.stitek { display: none; } }
+
+    /* ---------- BUTTONS ---------- */
+    .tl-btn {
+      background: #fff; width: 34px; height: 34px; line-height: 34px;
+      text-align: center; font-size: 17px; cursor: pointer;
+      border-radius: 6px; box-shadow: 0 1px 5px rgba(0,0,0,.4);
+    }
+    .tl-btn:hover { background: var(--pisek); }
+
+    /* ---------- LANGUAGE SWITCH ---------- */
+    #jazyk {
+      display: flex; overflow: hidden;
+      border-radius: 8px; box-shadow: 0 1px 5px rgba(0,0,0,.45);
+      font-size: 13px; font-weight: 700; letter-spacing: .5px;
+      background: #fff; cursor: pointer; user-select: none;
+    }
+    #jazyk span { padding: 7px 12px; color: var(--tyrkys); transition: background .15s; }
+    #jazyk span:hover { background: var(--pisek); }
+    #jazyk span.aktivni { background: var(--tyrkys); color: #fff; }
+    #jazyk span.aktivni:hover { background: var(--tyrkys); }
+
+    /* ---------- LEGEND (off by default) ---------- */
+    #legenda {
+      background: rgba(14,73,82,.94); color: #fff; padding: 10px 12px;
+      border-radius: 10px; font-size: 12px; line-height: 1.7;
+      box-shadow: 0 2px 10px rgba(0,0,0,.4);
+    }
+    #legenda i { display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+      margin-right: 7px; border: 2px solid #fff; vertical-align: -2px; }
   </style>
 </head>
 <body>
   <div id="mapa"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
-    // =====================================================
-    //  MAPA AKCE v2 - tight framing, blue unfilled border
-    // =====================================================
+  // =====================================================
+  //  TANKODROM MILOVICE - mapa areálu (CS / EN) - production
+  //  Language: ?lang=en in the URL, or the CZ|EN switch.
+  // =====================================================
 
-    // ---------- 1. BASE LAYERS ----------
-    const cuzkOrtofoto = L.tileLayer.wms(
-      'https://ags.cuzk.gov.cz/arcgis1/services/ORTOFOTO/MapServer/WMSServer',
-      {
-        layers: '0',
-        format: 'image/jpeg',
-        maxZoom: 20,
-        attribution: 'Ortofoto &copy; <a href="https://cuzk.gov.cz">ČÚZK</a>'
-      }
-    );
+  // Coordinate picker stays available on the live site via ?debug=1
+  const REZIM_LADENI     = new URLSearchParams(location.search).has('debug');
+  const ZOBRAZIT_LEGENDU = false;  // small colour legend, bottom left
 
-    const esriSatelit = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom: 19, attribution: 'Imagery &copy; Esri' }
-    );
+  // ---------- 1. LANGUAGE ----------
+  // Priority: ?lang=en in the URL, then the browser language, then Czech.
+  const parametr = new URLSearchParams(location.search).get('lang');
+  let jazyk = (parametr === 'en' || parametr === 'cs')
+    ? parametr
+    : ((navigator.language || 'cs').toLowerCase().startsWith('cs') ? 'cs' : 'en');
 
-    const osm = L.tileLayer(
-      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }
-    );
+  const UI = {
+    cs: {
+      titulek:   'Tankodrom Milovice - mapa areálu',
+      areal:     'Areál Tankodromu',
+      arealPopis:'Cca 103 ha bývalého vojenského prostoru.',
+      kdeJsem:   'Kde jsem',
+      jstuZde:   'Jste přibližně zde',
+      chybaPolohy:'Polohu se nepodařilo zjistit. Povolte prosím přístup k poloze.',
+      ortofoto:  'Ortofoto ČÚZK', satelit: 'Satelit', mapa: 'Mapa',
+      legVstupy: 'Vstupy', legAktivity: 'Aktivity na rezervaci', legZazemi: 'Zázemí a zvířata'
+    },
+    en: {
+      titulek:   'Tankodrom Milovice - site map',
+      areal:     'Tankodrom site',
+      arealPopis:'Approx. 103 ha of former military training ground.',
+      kdeJsem:   'Where am I',
+      jstuZde:   'You are roughly here',
+      chybaPolohy:'Location could not be determined. Please allow location access.',
+      ortofoto:  'Aerial (ČÚZK)', satelit: 'Satellite', mapa: 'Street map',
+      legVstupy: 'Entrances', legAktivity: 'Booked activities', legZazemi: 'Facilities and animals'
+    }
+  };
 
-    // ---------- 2. THE MAP ----------
-    const mapa = L.map('mapa', { layers: [cuzkOrtofoto] });
+  // ---------- 2. GLYPHS (24x24 viewBox) ----------
+  const IKONY = {
+  vjezd: '<path d="M2.2 17.4v-3.1l2-.5 2.4-4.2h10.8l2.4 4.2 2 .5v3.1z"/><circle cx="6.8" cy="18.4" r="2.1" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="17.2" cy="18.4" r="2.1" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="1.6" y="3.4" width="20.8" height="3.4" rx="1.2"/>',
+  vstup: '<path d="M2.4 3.4h6.2v2.6H5.2v12h3.4v2.6H2.4z"/><path d="M21.6 12 14 6.2v3.6h-3.6v4.4H14v3.6z"/>',
+  tank: '<path d="M4 15 5.8 10.6h10.4L19 15z"/><rect x="9" y="6.8" width="6.6" height="3.6" rx="1.1"/><rect x="14.6" y="7.6" width="7.8" height="1.7" rx="0.8"/><path d="M2.6 15.6h18.8a2.6 2.6 0 0 1 0 5.2H2.6a2.6 2.6 0 0 1 0-5.2z"/>',
+  bvp: '<path d="M1.8 14.6 6 9.2h10.6l4.6 3.8v1.6z"/><rect x="11.6" y="6" width="4.8" height="3.2" rx="0.9"/><rect x="15.6" y="6.7" width="6.6" height="1.4" rx="0.7"/><circle cx="6" cy="17.6" r="2.5"/><circle cx="12.2" cy="17.6" r="2.5"/><circle cx="18.4" cy="17.6" r="2.5"/>',
+  tatra: '<path d="M1.4 15.6V8.4h5.9l2.8 4.2v3z"/><rect x="10.6" y="5.6" width="12" height="10" rx="1.2"/><circle cx="5" cy="18" r="2.4"/><circle cx="15.4" cy="18" r="2.4"/><circle cx="20.4" cy="18" r="2.4"/>',
+  strelnice: '<circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="4.6" fill="none" stroke="currentColor" stroke-width="2.4"/><circle cx="12" cy="12" r="1.7"/><path d="M12 .6V4M12 20v3.4M.6 12H4M20 12h3.4" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  zavody: '<rect x="1.8" y="2" width="2.6" height="20.4" rx="1.2"/><rect x="4.4" y="3" width="17.8" height="10.4"/><path d="M4.4 3h4.45v3.47H4.4zM13.3 3h4.45v3.47H13.3zM8.85 6.47h4.45v3.47H8.85zM17.75 6.47h4.45v3.47h-4.45zM4.4 9.94h4.45v3.46H4.4zM13.3 9.94h4.45v3.46H13.3z" fill="var(--oranz)"/>',
+  muzeum: '<path d="M12 2.6 22.6 8.2H1.4z"/><rect x="3.6" y="9.8" width="2.6" height="7.6"/><rect x="8.4" y="9.8" width="2.6" height="7.6"/><rect x="13.2" y="9.8" width="2.6" height="7.6"/><rect x="18" y="9.8" width="2.6" height="7.6"/><rect x="1.4" y="18.6" width="21.2" height="2.8" rx="0.8"/>',
+  kavarna: '<path d="M2.6 6.6h13.2v6.6a6.6 6.6 0 0 1-6.6 6.6 6.6 6.6 0 0 1-6.6-6.6z"/><path d="M16.6 8.6h1.9a3.2 3.2 0 0 1 0 6.4h-2.4" fill="none" stroke="currentColor" stroke-width="2"/><rect x="1.2" y="20.8" width="16" height="2.4" rx="1.2"/><path d="M6 4.4V1.8M9.4 4.4V1.4M12.8 4.4V1.8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+  vlacek: '<rect x="3.4" y="2.6" width="17.2" height="14.6" rx="4.4"/><rect x="6.6" y="6" width="10.8" height="5.2" rx="1.6" fill="var(--tyrkys)"/><circle cx="8" cy="14.2" r="1.5" fill="var(--tyrkys)"/><circle cx="16" cy="14.2" r="1.5" fill="var(--tyrkys)"/><path d="M7 22.4 10 18.6M17 22.4 14 18.6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>',
+  parkoviste: '<rect x="2.2" y="2.2" width="19.6" height="19.6" rx="4.4" fill="none" stroke="currentColor" stroke-width="2.8"/><text x="12" y="17.8" font-family="system-ui,Arial" font-size="14.5" font-weight="700" text-anchor="middle" fill="currentColor">P</text>',
+  armycamp: '<path d="M12 6.4 3.4 20.6h17.2z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M12 12.6 8.4 20.6h7.2z"/><path d="m12 .6 1.35 2.9 3.05.42-2.2 2.24.52 3.16L12 7.74 9.28 9.32l.52-3.16-2.2-2.24 3.05-.42z"/>',
+  zakladna: '<path d="M1.6 20.6v-4.8a6.2 6.2 0 0 1 12.4 0v4.8z"/><path d="m7.8 12.2 1.05 2.2 2.35.32-1.7 1.72.4 2.44-2.1-1.22-2.1 1.22.4-2.44-1.7-1.72 2.35-.32z" fill="var(--tyrkys)"/><path d="M16.6 20.6V2.6h2.1v2h4.1l-2.1 2.7 2.1 2.7h-4.1v10.6z"/>',
+  hriste: '<path d="M2.6 20.6c0-7 5.2-11.4 11-11.8" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/><rect x="14.6" y="2.6" width="2.6" height="18" rx="1"/><rect x="20.8" y="2.6" width="2.6" height="18" rx="1"/><rect x="14.6" y="6.4" width="8.8" height="2.1"/><rect x="14.6" y="11.2" width="8.8" height="2.1"/><rect x="14.6" y="16" width="8.8" height="2.1"/><rect x="1.2" y="19.4" width="6" height="2.4" rx="1.2"/>',
+  kone: '<path d="M12 1.6c4.6 0 8 3.6 8 8.6 0 3.3-1 6.2-2.5 8.6l-3.3-1.9c1.2-1.9 2-4.2 2-6.7 0-2.8-1.7-4.7-4.2-4.7s-4.2 1.9-4.2 4.7c0 2.5.8 4.8 2 6.7l-3.3 1.9C5 16.4 4 13.5 4 10.2c0-5 3.4-8.6 8-8.6z"/><path d="m5.7 18.9 3.4 2-1.7 2.9-3.4-2zM18.3 18.9l-3.4 2 1.7 2.9 3.4-2z"/>',
+  osli: '<path d="M7.2 1.4c1.5 0 2.4 2.1 2.4 5 0 1.1-.1 2.1-.4 2.9L5.6 7.7c-.2-.9-.3-1.9-.3-2.9 0-2.4.7-3.4 1.9-3.4zM16.8 1.4c1.2 0 1.9 1 1.9 3.4 0 1-.1 2-.3 2.9l-3.6 1.6c-.3-.8-.4-1.8-.4-2.9 0-2.9.9-5 2.4-5z"/><path d="M12 7.6c3.6 0 6 2.3 6 5.6 0 1.3-.4 2.5-1 3.5l.8 4.2-2.8-1.5c-.9.4-1.9.6-3 .6s-2.1-.2-3-.6L6.2 20.9l.8-4.2c-.6-1-1-2.2-1-3.5 0-3.3 2.4-5.6 6-5.6z"/><circle cx="9.6" cy="12.6" r="1.15" fill="var(--tyrkys)"/><circle cx="14.4" cy="12.6" r="1.15" fill="var(--tyrkys)"/><ellipse cx="12" cy="17.4" rx="2.6" ry="1.8" fill="var(--tyrkys)"/>',
+  jeleni: '<path d="M12 8.8c3.2 0 5.5 2.2 5.5 5.2 0 3.6-2.5 7-5.5 7s-5.5-3.4-5.5-7c0-3 2.3-5.2 5.5-5.2z"/><circle cx="9.8" cy="13.6" r="1.15" fill="var(--tyrkys)"/><circle cx="14.2" cy="13.6" r="1.15" fill="var(--tyrkys)"/><path d="M8.6 8.2C7 6.4 6 4.6 6 2.6M6 2.6 3 3.4M6 2.6 6.8.4M8.2 5.2 5.6 5.6M15.4 8.2C17 6.4 18 4.6 18 2.6M18 2.6l3 .8M18 2.6 17.2.4M15.8 5.2l2.6.4" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>',
+  skot: '<path d="M12 8.4c3.4 0 5.9 2.3 5.9 5.5 0 3.7-2.6 7.1-5.9 7.1s-5.9-3.4-5.9-7.1c0-3.2 2.5-5.5 5.9-5.5z"/><circle cx="9.7" cy="13.2" r="1.2" fill="var(--tyrkys)"/><circle cx="14.3" cy="13.2" r="1.2" fill="var(--tyrkys)"/><ellipse cx="12" cy="17.8" rx="2.8" ry="1.9" fill="var(--tyrkys)"/><path d="M6.9 10.2C4.1 10.4 1.7 8.6 1 6c2.1-.5 3.9.1 5.1 1.5.8.9 1.4 1.9 1.7 2.9zM17.1 10.2c2.8.2 5.2-1.6 5.9-4.2-2.1-.5-3.9.1-5.1 1.5-.8.9-1.4 1.9-1.7 2.9z"/>'
+  };
 
-    // ---------- 3. EVENT AREA (new corners) ----------
-    const hraniceAkce = [
-      [50.2495986, 14.8484867],  // NW
-      [50.2491761, 14.8496881],  // NE
-      [50.2479714, 14.8496303],  // SE
-      [50.2479617, 14.8484481]   // SW
-    ];
-    const areaAkce = L.polygon(hraniceAkce, {
-      color: '#1565c0',          // blue border
-      fill: false,               // no filler - pure outline
-      weight: 3
+  // ---------- 3. ALL POINTS - one entry, two languages ----------
+  //  typ: 'vstup' (red) | 'aktivity' (orange) | 'sluzby' (teal)
+  const BODY = [
+    { lat: 50.246398, lng: 14.859089, ikona: 'vjezd', typ: 'vstup',
+      cs: ['Hlavní vjezd', 'Vjezd do areálu autem.'],
+      en: ['Main gate', 'Vehicle entrance to the site.'] },
+
+    { lat: 50.247224, lng: 14.848637, ikona: 'vstup', typ: 'vstup',
+      cs: ['Hlavní vstup', 'Zde začínají všechny aktivity.'],
+      en: ['Main entrance', 'All activities start here.'] },
+
+    { lat: 50.241747, lng: 14.854481, ikona: 'tank', typ: 'aktivity',
+      cs: ['Tankový terén', 'Jízdy tankem T-55. Pouze s rezervací.'],
+      en: ['Tank terrain', 'T-55 tank rides. Booking required.'] },
+
+    { lat: 50.242516, lng: 14.856412, ikona: 'bvp', typ: 'aktivity',
+      cs: ['Terén BVP', 'Bojové vozidlo pěchoty. Pouze s rezervací.'],
+      en: ['IFV terrain', 'Infantry fighting vehicle. Booking required.'] },
+
+    { lat: 50.241936, lng: 14.855205, ikona: 'tatra', typ: 'aktivity',
+      cs: ['Terén Tatra', 'Jízdy Tatrou 813. Pouze s rezervací.'],
+      en: ['Tatra terrain', 'Tatra 813 rides. Booking required.'] },
+
+    { lat: 50.246963, lng: 14.854385, ikona: 'strelnice', typ: 'aktivity',
+      cs: ['Střelnice', 'Pouze s rezervací.'],
+      en: ['Shooting range', 'Booking required.'] },
+
+    { lat: 50.245809, lng: 14.852802, ikona: 'zavody', typ: 'aktivity',
+      cs: ['Automobilové závody', 'Závodní trať.'],
+      en: ['Car racing', 'Racing track.'] },
+
+    { lat: 50.247568, lng: 14.848980, ikona: 'muzeum', typ: 'sluzby',
+      cs: ['Muzeum vojenské techniky', 'Součást vstupenky.'],
+      en: ['Military vehicle museum', 'Included in your ticket.'] },
+
+    { lat: 50.248069, lng: 14.848830, ikona: 'kavarna', typ: 'sluzby',
+      cs: ['Kavárna u muzea', 'Občerstvení.'],
+      en: ['Café by the museum', 'Food and drinks.'] },
+
+    { lat: 50.248544, lng: 14.849058, ikona: 'vlacek', typ: 'sluzby',
+      cs: ['Vláček do Mirakula', 'Zastávka vláčku.'],
+      en: ['Train to Mirakulum', 'Land train stop.'] },
+
+    { lat: 50.240828, lng: 14.858298, ikona: 'vlacek', typ: 'sluzby',
+      cs: ['Vláček na Tankodrom', 'Zastávka vláčku.'],
+      en: ['Train to Tankodrom', 'Land train stop.'] },
+
+    { lat: 50.246118, lng: 14.856466, ikona: 'parkoviste', typ: 'sluzby',
+      cs: ['Parkoviště', ''], en: ['Parking', ''] },
+
+    { lat: 50.247421, lng: 14.851177, ikona: 'parkoviste', typ: 'sluzby',
+      cs: ['Parkoviště', ''], en: ['Parking', ''] },
+
+    { lat: 50.247164, lng: 14.849154, ikona: 'parkoviste', typ: 'sluzby',
+      cs: ['Parkoviště', ''], en: ['Parking', ''] },
+
+    { lat: 50.246436, lng: 14.848752, ikona: 'armycamp', typ: 'sluzby',
+      cs: ['Army camp', 'Ubytování ve stanech.'],
+      en: ['Army camp', 'Tented accommodation.'] },
+
+    { lat: 50.248909, lng: 14.851879, ikona: 'zakladna', typ: 'sluzby',
+      cs: ['Army základna', ''], en: ['Army base', ''] },
+
+    { lat: 50.249481, lng: 14.848622, ikona: 'hriste', typ: 'sluzby',
+      cs: ['Hřiště', ''], en: ['Playground', ''] },
+
+    { lat: 50.248498, lng: 14.848823, ikona: 'hriste', typ: 'sluzby',
+      cs: ['Hřiště', ''], en: ['Playground', ''] },
+
+    { lat: 50.248026, lng: 14.850509, ikona: 'kone', typ: 'sluzby',
+      cs: ['Koně', ''], en: ['Horses', ''] },
+
+    { lat: 50.247623, lng: 14.850273, ikona: 'osli', typ: 'sluzby',
+      cs: ['Oslíci', ''], en: ['Donkeys', ''] },
+
+    { lat: 50.247897, lng: 14.854122, ikona: 'jeleni', typ: 'sluzby',
+      cs: ['Jeleni', ''], en: ['Deer', ''] },
+
+    { lat: 50.247849, lng: 14.847642, ikona: 'skot', typ: 'sluzby',
+      cs: ['Skot Galloway', ''], en: ['Galloway cattle', ''] },
+
+    { lat: 50.244402, lng: 14.848940, ikona: 'skot', typ: 'sluzby',
+      cs: ['Skot Highland', ''], en: ['Highland cattle', ''] }
+  ];
+
+  // ---------- 4. BASE MAPS ----------
+  const cuzkOrtofoto = L.tileLayer.wms(
+    'https://ags.cuzk.gov.cz/arcgis1/services/ORTOFOTO/MapServer/WMSServer',
+    { layers: '0', format: 'image/jpeg', maxZoom: 20,
+      attribution: 'Ortofoto &copy; <a href="https://cuzk.gov.cz">ČÚZK</a>' }
+  );
+  const esriSatelit = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { maxZoom: 19, attribution: 'Imagery &copy; Esri' }
+  );
+  const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
+
+  const mapa = L.map('mapa', { layers: [cuzkOrtofoto], maxZoom: 20 });
+
+  // ---------- 5. ONE BORDER ----------
+  const hraniceArealu = [
+    [50.249444, 14.846472],  // NW
+    [50.249806, 14.859556],  // NE
+    [50.241056, 14.863528],  // SE
+    [50.239333, 14.849833]   // SW
+  ];
+  L.polygon(hraniceArealu, { color: '#fff', weight: 8, opacity: .75, fill: false, interactive: false }).addTo(mapa);
+  const areal = L.polygon(hraniceArealu, {
+    color: '#E2711D', weight: 3.5, opacity: 1, fillColor: '#0E4952', fillOpacity: .06
+  }).addTo(mapa);
+
+  // ---------- 6. MARKERS ----------
+  function obsahPopupu(b) {
+    const [nazev, popis] = b[jazyk];
+    const gmaps  = `https://www.google.com/maps/dir/?api=1&destination=${b.lat},${b.lng}`;
+    const mapycz = `https://mapy.cz/zakladni?x=${b.lng}&y=${b.lat}&z=18&source=coor&id=${b.lng},${b.lat}`;
+    const waze   = `https://waze.com/ul?ll=${b.lat},${b.lng}&navigate=yes`;
+    return `
+      <div class="pop-nazev">${nazev}</div>
+      ${popis ? `<div class="pop-popis">${popis}</div>` : ''}
+      <div class="pop-gps">${b.lat}, ${b.lng}</div>
+      <div class="pop-nav">
+        <a href="${gmaps}" target="_blank" rel="noopener">Google</a>
+        <a href="${mapycz}" target="_blank" rel="noopener">Mapy.cz</a>
+        <a href="${waze}" target="_blank" rel="noopener">Waze</a>
+      </div>`;
+  }
+
+  const znacky = BODY.map(b => {
+    const velikost = (b.typ === 'vstup') ? 44 : 36;
+    const html = `<div class="odznak odznak-${b.typ}">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">${IKONY[b.ikona]}</svg>
+      </div>`;
+    const m = L.marker([b.lat, b.lng], {
+      icon: L.divIcon({
+        className: '', html,
+        iconSize: [velikost, velikost],
+        iconAnchor: [velikost / 2, velikost / 2],
+        popupAnchor: [0, -velikost / 2]
+      }),
+      riseOnHover: true,
+      zIndexOffset: b.typ === 'vstup' ? 1000 : (b.typ === 'aktivity' ? 500 : 0)
+    })
+    .bindPopup(obsahPopupu(b))
+    .bindTooltip(b[jazyk][0], { direction: 'top', offset: [0, -velikost / 2], className: 'stitek' })
+    .addTo(mapa);
+    m._data = b;
+    return m;
+  });
+
+  L.control.scale({ imperial: false }).addTo(mapa);
+  mapa.fitBounds(areal.getBounds(), { padding: [24, 24] });
+
+  // ---------- 7. LANGUAGE SWITCH ----------
+  let ovladacVrstev, ovladacLegendy;
+
+  function prepniJazyk(novy) {
+    if (novy === jazyk) return;
+    jazyk = novy;
+    prekresliTexty();
+    // keep the URL shareable and iframe-friendly
+    const u = new URL(location.href);
+    u.searchParams.set('lang', jazyk);
+    history.replaceState(null, '', u);
+  }
+
+  function prekresliTexty() {
+    const t = UI[jazyk];
+
+    document.documentElement.lang = jazyk;
+    document.title = t.titulek;
+
+    areal.bindPopup(`<div class="pop-nazev">${t.areal}</div><div class="pop-popis">${t.arealPopis}</div>`);
+
+    znacky.forEach(m => {
+      m.setPopupContent(obsahPopupu(m._data));
+      m.setTooltipContent(m._data[jazyk][0]);
     });
-    areaAkce.bindPopup('<b>Prostor akce</b>');
 
-    // ---------- 4. POI MARKERS - GPS + navigation in every popup ----------
-    function poi(lat, lng, emoji, nazev) {
-      const gmaps = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-      const mapycz = `https://mapy.cz/zakladni?x=${lng}&y=${lat}&z=18&source=coor&id=${lng},${lat}`;
+    // rebuild the base map switcher with translated names
+    if (ovladacVrstev) mapa.removeControl(ovladacVrstev);
+    ovladacVrstev = L.control.layers({
+      [t.ortofoto]: cuzkOrtofoto,
+      [t.satelit]:  esriSatelit,
+      [t.mapa]:     osm
+    }, null, { position: 'topright' }).addTo(mapa);
 
-      const obsahPopupu = `
-        <div style="text-align:center; min-width:170px;">
-          <b>${nazev}</b><br>
-          <small>GPS: ${lat}, ${lng}</small><br>
-          <a href="${gmaps}" target="_blank">🧭 Google Maps</a> ·
-          <a href="${mapycz}" target="_blank">🗺️ Mapy.cz</a>
-        </div>`;
-
-      return L.marker([lat, lng], {
-        icon: L.divIcon({ className: 'poi-ikona', html: emoji, iconSize: [28, 28] })
-      }).bindPopup(obsahPopupu);
+    // rebuild the legend
+    if (ovladacLegendy) { mapa.removeControl(ovladacLegendy); ovladacLegendy = null; }
+    if (ZOBRAZIT_LEGENDU) {
+      ovladacLegendy = L.control({ position: 'bottomleft' });
+      ovladacLegendy.onAdd = function () {
+        const d = L.DomUtil.create('div', '');
+        d.id = 'legenda';
+        d.innerHTML = `<i style="background:#C62828"></i>${t.legVstupy}<br>` +
+                      `<i style="background:#E2711D"></i>${t.legAktivity}<br>` +
+                      `<i style="background:#0E4952"></i>${t.legZazemi}`;
+        return d;
+      };
+      ovladacLegendy.addTo(mapa);
     }
 
-    const body_akce = L.layerGroup([
-      poi(50.2492531, 14.8487761, '🎶', 'DJ STATION'),
-      poi(50.2493722, 14.8491217, '🍺', 'BAR'),
-      poi(50.2481347, 14.8488492, '🚻', 'WC')
-    ]);
+    // locate button tooltip
+    const tlacitkoPolohy = document.querySelector('.tl-btn');
+    if (tlacitkoPolohy) tlacitkoPolohy.title = t.kdeJsem;
 
-    // ---------- 5. LAYER SWITCHER ----------
-    L.control.layers(
-      {
-        'Ortofoto ČÚZK': cuzkOrtofoto,
-        'Satelit (Esri)': esriSatelit,
-        'Mapa (OSM)': osm
-      },
-      {
-        'Prostor akce': areaAkce,
-        'Stanoviště': body_akce
-      }
-    ).addTo(mapa);
+    // active state of the CZ|EN pill
+    document.querySelectorAll('#jazyk span').forEach(s => {
+      s.classList.toggle('aktivni', s.dataset.jazyk === jazyk);
+    });
+  }
 
-    areaAkce.addTo(mapa);
-    body_akce.addTo(mapa);
+  const Prepinac = L.Control.extend({
+    options: { position: 'topright' },
+    onAdd() {
+      const d = L.DomUtil.create('div', '');
+      d.id = 'jazyk';
+      d.innerHTML = '<span data-jazyk="cs">CZ</span><span data-jazyk="en">EN</span>';
+      L.DomEvent.disableClickPropagation(d);
+      d.addEventListener('click', e => {
+        const s = e.target.closest('span');
+        if (s) prepniJazyk(s.dataset.jazyk);
+      });
+      return d;
+    }
+  });
+  mapa.addControl(new Prepinac());
 
-    // ---------- 6. SCALE + TIGHT FIT ----------
-    L.control.scale({ imperial: false }).addTo(mapa);
-    // Small padding = the event area fills the screen
-    mapa.fitBounds(areaAkce.getBounds(), { padding: [10, 10] });
+  // ---------- 8. "WHERE AM I" ----------
+  const Poloha = L.Control.extend({
+    options: { position: 'topleft' },
+    onAdd() {
+      const b = L.DomUtil.create('div', 'tl-btn');
+      b.innerHTML = '&#9678;';
+      b.title = UI[jazyk].kdeJsem;
+      L.DomEvent.on(b, 'click', L.DomEvent.stop)
+                .on(b, 'click', () => mapa.locate({ setView: true, maxZoom: 18 }));
+      return b;
+    }
+  });
+  mapa.addControl(new Poloha());
 
-    // ---------- 7. Coordinate picker ----------
-    mapa.on('click', (e) => {
-      const lat = e.latlng.lat.toFixed(6);
-      const lng = e.latlng.lng.toFixed(6);
+  let znackaPolohy;
+  mapa.on('locationfound', e => {
+    if (znackaPolohy) mapa.removeLayer(znackaPolohy);
+    znackaPolohy = L.circleMarker(e.latlng, {
+      radius: 8, color: '#fff', weight: 3, fillColor: '#1565c0', fillOpacity: 1
+    }).addTo(mapa).bindPopup(UI[jazyk].jstuZde).openPopup();
+  });
+  mapa.on('locationerror', () => alert(UI[jazyk].chybaPolohy));
+
+  // ---------- 9. BADGE SIZE BY ZOOM ----------
+  function prizpusobVelikost() {
+    const z = mapa.getZoom();
+    const s = z >= 17 ? 1 : z >= 16 ? .88 : z >= 15 ? .74 : .6;
+    document.documentElement.style.setProperty('--s', s);
+  }
+  mapa.on('zoomend', prizpusobVelikost);
+  prizpusobVelikost();
+
+  // ---------- 10. FIRST PAINT ----------
+  prekresliTexty();
+
+  // ---------- 11. COORDINATE PICKER ----------
+  if (REZIM_LADENI) {
+    mapa.on('click', e => {
+      const lat = e.latlng.lat.toFixed(6), lng = e.latlng.lng.toFixed(6);
       L.popup().setLatLng(e.latlng).setContent(`[${lat}, ${lng}]`).openOn(mapa);
       console.log(`[${lat}, ${lng}],`);
     });
+  }
   </script>
 </body>
 </html>
