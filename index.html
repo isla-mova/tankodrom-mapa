@@ -149,8 +149,8 @@
   const UI = {
     cs: {
       titulek:   'Tankodrom Milovice - mapa areálu',
-      cesta:     'Cesta ke vstupu a muzeu',
-      cestaPopis:'Pěší trasa od hlavního vstupu k muzeu.',
+      cesta:     'Cesta od vjezdu ke vstupu',
+      cestaPopis:'Trasa od hlavního vjezdu k hlavnímu vstupu, kde začínají všechny aktivity. Cca 850 m.',
       kdeJsem:   'Kde jsem',
       jstuZde:   'Jste přibližně zde',
       chybaPolohy:'Polohu se nepodařilo zjistit. Povolte prosím přístup k poloze.',
@@ -159,8 +159,8 @@
     },
     en: {
       titulek:   'Tankodrom Milovice - site map',
-      cesta:     'Walk to the entrance and museum',
-      cestaPopis:'Footpath from the main entrance to the museum.',
+      cesta:     'Route from the gate to the entrance',
+      cestaPopis:'Route from the main gate to the main entrance, where all activities start. Approx. 850 m.',
       kdeJsem:   'Where am I',
       jstuZde:   'You are roughly here',
       chybaPolohy:'Location could not be determined. Please allow location access.',
@@ -295,15 +295,22 @@
   ];
   const rozsahArealu = L.latLngBounds(hraniceArealu);
 
-  // ---------- 5b. WALKING PATH: main entrance -> museum ----------
-  // PLACEHOLDER - replace with points surveyed on the ortofoto (see ?debug=1).
-  // Order matters: first point = main entrance, last point = museum.
+  // ---------- 5b. WALKING PATH: main gate -> main entrance ----------
+  // Surveyed on the ortofoto. First point = main gate, last = main entrance.
+  // ~850 m. Two clicks were reordered: the gate itself was point 2 in the raw
+  // survey, and a 5 m spur just before the entrance was dropped.
   const CESTA = [
-    [50.247224, 14.848637],  // Hlavní vstup / Main entrance
-    [50.247310, 14.848690],  // bend
-    [50.247402, 14.848778],  // bend
-    [50.247498, 14.848901],  // bend
-    [50.247568, 14.848980]   // Muzeum / Museum
+    [50.2464631, 14.8590603],  // Hlavní vjezd / Main gate
+    [50.2466331, 14.8589347],
+    [50.2472317, 14.8584553],
+    [50.2469567, 14.8561794],
+    [50.2470356, 14.8552039],
+    [50.2473172, 14.8547414],
+    [50.2475725, 14.8541364],
+    [50.2480831, 14.8527717],
+    [50.2477961, 14.8515244],
+    [50.2472925, 14.8495675],
+    [50.2472240, 14.8486370]   // Hlavní vstup / Main entrance
   ];
 
   // white casing underneath so the line reads on grass, gravel and asphalt alike
