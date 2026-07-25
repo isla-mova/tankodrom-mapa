@@ -149,8 +149,8 @@
   const UI = {
     cs: {
       titulek:   'Tankodrom Milovice - mapa areálu',
-      areal:     'Areál Tankodromu',
-      arealPopis:'Cca 103 ha bývalého vojenského prostoru.',
+      cesta:     'Cesta ke vstupu a muzeu',
+      cestaPopis:'Pěší trasa od hlavního vstupu k muzeu.',
       kdeJsem:   'Kde jsem',
       jstuZde:   'Jste přibližně zde',
       chybaPolohy:'Polohu se nepodařilo zjistit. Povolte prosím přístup k poloze.',
@@ -159,8 +159,8 @@
     },
     en: {
       titulek:   'Tankodrom Milovice - site map',
-      areal:     'Tankodrom site',
-      arealPopis:'Approx. 103 ha of former military training ground.',
+      cesta:     'Walk to the entrance and museum',
+      cestaPopis:'Footpath from the main entrance to the museum.',
       kdeJsem:   'Where am I',
       jstuZde:   'You are roughly here',
       chybaPolohy:'Location could not be determined. Please allow location access.',
@@ -238,18 +238,11 @@
       cs: ['Vláček na Tankodrom', 'Zastávka vláčku.'],
       en: ['Train to Tankodrom', 'Land train stop.'] },
 
-    { lat: 50.246118, lng: 14.856466, ikona: 'parkoviste', typ: 'sluzby',
-      cs: ['Parkoviště', ''], en: ['Parking', ''] },
-
     { lat: 50.247421, lng: 14.851177, ikona: 'parkoviste', typ: 'sluzby',
       cs: ['Parkoviště', ''], en: ['Parking', ''] },
 
     { lat: 50.247164, lng: 14.849154, ikona: 'parkoviste', typ: 'sluzby',
       cs: ['Parkoviště', ''], en: ['Parking', ''] },
-
-    { lat: 50.246436, lng: 14.848752, ikona: 'armycamp', typ: 'sluzby',
-      cs: ['Army camp', 'Ubytování ve stanech.'],
-      en: ['Army camp', 'Tented accommodation.'] },
 
     { lat: 50.248909, lng: 14.851879, ikona: 'zakladna', typ: 'sluzby',
       cs: ['Army základna', ''], en: ['Army base', ''] },
@@ -291,16 +284,38 @@
 
   const mapa = L.map('mapa', { layers: [cuzkOrtofoto], maxZoom: 20 });
 
-  // ---------- 5. ONE BORDER ----------
+  // ---------- 5. SITE EXTENT (no longer drawn - used only to frame the view) ----------
+  // The orange outline was removed on request. These four corners stay so the
+  // map still knows where to zoom on load. Nothing is painted from them.
   const hraniceArealu = [
     [50.249444, 14.846472],  // NW
     [50.249806, 14.859556],  // NE
     [50.241056, 14.863528],  // SE
     [50.239333, 14.849833]   // SW
   ];
-  L.polygon(hraniceArealu, { color: '#fff', weight: 8, opacity: .75, fill: false, interactive: false }).addTo(mapa);
-  const areal = L.polygon(hraniceArealu, {
-    color: '#E2711D', weight: 3.5, opacity: 1, fillColor: '#0E4952', fillOpacity: .06
+  const rozsahArealu = L.latLngBounds(hraniceArealu);
+
+  // ---------- 5b. WALKING PATH: main entrance -> museum ----------
+  // PLACEHOLDER - replace with points surveyed on the ortofoto (see ?debug=1).
+  // Order matters: first point = main entrance, last point = museum.
+  const CESTA = [
+    [50.247224, 14.848637],  // Hlavní vstup / Main entrance
+    [50.247310, 14.848690],  // bend
+    [50.247402, 14.848778],  // bend
+    [50.247498, 14.848901],  // bend
+    [50.247568, 14.848980]   // Muzeum / Museum
+  ];
+
+  // white casing underneath so the line reads on grass, gravel and asphalt alike
+  L.polyline(CESTA, {
+    color: '#FFFFFF', weight: 10, opacity: .85,
+    lineCap: 'round', lineJoin: 'round', interactive: false
+  }).addTo(mapa);
+
+  // orange dotted trail on top
+  const cesta = L.polyline(CESTA, {
+    color: '#E2711D', weight: 5, opacity: 1,
+    dashArray: '1 13', lineCap: 'round', lineJoin: 'round'
   }).addTo(mapa);
 
   // ---------- 6. MARKERS ----------
@@ -343,7 +358,7 @@
   });
 
   L.control.scale({ imperial: false }).addTo(mapa);
-  mapa.fitBounds(areal.getBounds(), { padding: [24, 24] });
+  mapa.fitBounds(rozsahArealu, { padding: [24, 24] });
 
   // ---------- 7. LANGUAGE SWITCH ----------
   let ovladacVrstev, ovladacLegendy;
@@ -364,7 +379,8 @@
     document.documentElement.lang = jazyk;
     document.title = t.titulek;
 
-    areal.bindPopup(`<div class="pop-nazev">${t.areal}</div><div class="pop-popis">${t.arealPopis}</div>`);
+    cesta.bindTooltip(t.cesta, { sticky: true, className: 'stitek' });
+    cesta.bindPopup(`<div class="pop-nazev">${t.cesta}</div><div class="pop-popis">${t.cestaPopis}</div>`);
 
     znacky.forEach(m => {
       m.setPopupContent(obsahPopupu(m._data));
