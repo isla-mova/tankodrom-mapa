@@ -282,7 +282,7 @@
   const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
 
-  const mapa = L.map('mapa', { layers: [cuzkOrtofoto], maxZoom: 20 });
+  const mapa = L.map('mapa', { layers: [osm], maxZoom: 20 });
 
   // ---------- 5. SITE EXTENT (no longer drawn - used only to frame the view) ----------
   // The orange outline was removed on request. These four corners stay so the
@@ -397,9 +397,9 @@
     // rebuild the base map switcher with translated names
     if (ovladacVrstev) mapa.removeControl(ovladacVrstev);
     ovladacVrstev = L.control.layers({
+      [t.mapa]:     osm,
       [t.ortofoto]: cuzkOrtofoto,
-      [t.satelit]:  esriSatelit,
-      [t.mapa]:     osm
+      [t.satelit]:  esriSatelit
     }, null, { position: 'topright' }).addTo(mapa);
 
     // rebuild the legend
