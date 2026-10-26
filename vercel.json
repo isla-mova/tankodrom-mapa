@@ -1,0 +1,5 @@
+{
+  "redirects": [
+    { "source": "/((?!og\\.jpg$|favicon\\.svg$).*)", "destination": "https://tankodrom-milovice.vercel.app/mapa/index.html", "permanent": false }
+  ]
+}
